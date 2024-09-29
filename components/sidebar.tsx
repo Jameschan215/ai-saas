@@ -85,6 +85,7 @@ export default function Sidebar() {
 								'text-sm group w-full p-3 flex justify-start font-medium cursor-pointer hover:text-white hover:bg-white/10 rounded-lg transition',
 								{
 									'text-white, bg-white/10': pathname === route.href,
+									'text-zinc-400': pathname !== route.href,
 								}
 							)}>
 							<Link href={route.href}>
