@@ -2,6 +2,7 @@ import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 
 import { AzureOpenAI } from 'openai';
+import { ChatCompletionSystemMessageParam } from 'openai/resources/index.mjs';
 
 export async function POST(request: Request) {
 	try {
@@ -28,15 +29,20 @@ export async function POST(request: Request) {
 		}
 
 		const client = new AzureOpenAI({ endpoint, apiKey, apiVersion });
+		const instructionMessage: ChatCompletionSystemMessageParam = {
+			role: 'system',
+			content:
+				'You are a code generator. You must answer only in markdown code snippets. And give an explanations of the code after the code snippets.',
+		};
 		const response = await client.chat.completions.create({
-			messages,
+			messages: [instructionMessage, ...messages],
 			max_tokens: 512,
 			model: 'gpt-4o',
 		});
 
 		return NextResponse.json(response.choices[0].message);
 	} catch (error) {
-		console.log('[CONVERSATION_ERROR]', error);
+		console.log('[CODE_ERROR]', error);
 		return new NextResponse('Internal error', { status: 500 });
 	}
 }
