@@ -1,15 +1,25 @@
 'use client';
 
 import { MessageSquare } from 'lucide-react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import axios from 'axios';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { ChatCompletionUserMessageParam } from 'openai/resources/index.mjs';
 
-import { Form, FormControl, FormField, FormItem } from '@/components/ui/form';
+import { FormField, FormItem, FormControl, Form } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import Heading from '@/components/heading';
+import { cn } from '@/lib/utils';
+
 import { formSchema } from './constants';
+import Empty from '@/components/empty';
+import Loader from '@/components/loader';
+import UserAvatar from '@/components/user-avatar';
+import BotAvatar from '@/components/bot-avatar';
 
 type TForm = z.infer<typeof formSchema>;
 
@@ -22,9 +32,32 @@ export default function ConversationPage() {
 	});
 
 	const isLoading = form.formState.isSubmitting;
+	const router = useRouter();
+	const [messages, setMessages] = useState<ChatCompletionUserMessageParam[]>(
+		[]
+	);
 
 	const onSubmit = async (values: TForm) => {
-		console.log(values);
+		try {
+			const userMessage: ChatCompletionUserMessageParam = {
+				role: 'user',
+				content: values.prompt,
+			};
+			const newMessages = [...messages, userMessage];
+
+			const response = await axios.post('/api/conversation', {
+				messages: newMessages,
+			});
+
+			setMessages((prev) => [...prev, userMessage, response.data]);
+
+			form.reset();
+		} catch (error: unknown) {
+			// TODO: Open Pro Modal
+			console.log(error);
+		} finally {
+			router.refresh();
+		}
 	};
 
 	return (
@@ -38,8 +71,8 @@ export default function ConversationPage() {
 			/>
 
 			<div className="px-4 lg:px-8">
+				{/* Form */}
 				<div>
-					{/* Form */}
 					<Form {...form}>
 						<form
 							onSubmit={form.handleSubmit(onSubmit)}
@@ -51,15 +84,14 @@ export default function ConversationPage() {
 										<FormControl className="m-0 p-0">
 											<Input
 												className="border-0 outline-none focus-visible:ring-0 focus-visible:ring-transparent"
-												disabled={isLoading}
 												placeholder="How do I calculate the area of a circle?"
+												disabled={isLoading}
 												{...field}
 											/>
 										</FormControl>
 									</FormItem>
 								)}
 							/>
-
 							<Button
 								className="col-span-12 lg:col-span-2 w-full"
 								disabled={isLoading}>
@@ -70,7 +102,38 @@ export default function ConversationPage() {
 				</div>
 
 				{/* Message Content */}
-				<div className="mt-4 space-y-4">Message Content</div>
+				<div className="mt-4 space-y-4">
+					{/* Spinner */}
+					{isLoading && (
+						<div className="w-full p-8 rounded-lg flex items-center justify-center">
+							<Loader />
+						</div>
+					)}
+
+					{/* Empty */}
+					{messages.length === 0 && !isLoading && (
+						<Empty label="No Conversation Started." />
+					)}
+
+					{/* Messages */}
+					<div className="flex flex-col-reverse gap-y-4">
+						{messages.map((msg) => (
+							<div
+								key={msg.content as string}
+								className={cn(
+									'w-full p-8 rounded-lg flex items-start gap-x-8',
+									{
+										'bg-white border border-black/10': msg.role === 'user',
+										'bg-muted': msg.role !== 'user',
+									}
+								)}>
+								{msg.role === 'user' && <UserAvatar />}
+								{msg.role !== 'user' && <BotAvatar />}
+								<p className="text-sm">{msg.content as string}</p>
+							</div>
+						))}
+					</div>
+				</div>
 			</div>
 		</main>
 	);
